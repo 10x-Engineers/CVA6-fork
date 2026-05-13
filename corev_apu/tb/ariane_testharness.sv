@@ -38,7 +38,14 @@ module ariane_testharness #(
   input  logic                           clk_i,
   input  logic                           rtc_i,
   input  logic                           rst_ni,
-  output logic [31:0]                    exit_o
+  output logic [31:0]                    exit_o`ifdef RISCV_VIP_MODE,
+  input  logic                           enable_boot_i,
+  input  logic                           jtag_TCK_i,
+  input  logic                           jtag_TMS_i,
+  input  logic                           jtag_TDI_i,
+  input  logic                           jtag_TRSTn_i,
+  output logic                           jtag_TDO_data_o
+`endif
 );
 
   localparam [7:0] hart_id = '0;
@@ -77,6 +84,13 @@ module ariane_testharness #(
   logic        jtag_TRSTn;
   logic        jtag_TDO_data;
   logic        jtag_TDO_driven;
+`ifdef RISCV_VIP_MODE
+  assign jtag_TCK = jtag_TCK_i;
+  assign jtag_TMS = jtag_TMS_i;
+  assign jtag_TDI = jtag_TDI_i;
+  assign jtag_TRSTn = jtag_TRSTn_i;
+  assign jtag_TDO_data_o = jtag_TDO_data;
+`endif
 
   logic        debug_req_valid;
   logic        debug_req_ready;
@@ -132,6 +146,9 @@ module ariane_testharness #(
   logic debug_enable;
   initial begin
     if (!$value$plusargs("jtag_rbb_enable=%b", jtag_enable)) jtag_enable = 'h0;
+`ifdef RISCV_VIP_MODE
+    jtag_enable = 1;
+`endif
     if ($test$plusargs("debug_disable")) debug_enable = 'h0; else debug_enable = 'h1;
     if (CVA6Cfg.XLEN != 32 & CVA6Cfg.XLEN != 64) $error("CVA6Cfg.XLEN different from 32 and 64");
   end
@@ -150,6 +167,7 @@ module ariane_testharness #(
 
   // SiFive's SimJTAG Module
   // Converts to DPI calls
+`ifndef RISCV_VIP_MODE
   SimJTAG i_SimJTAG (
     .clock                ( clk_i                ),
     .reset                ( ~rst_ni              ),
@@ -163,6 +181,9 @@ module ariane_testharness #(
     .jtag_TDO_driven      ( jtag_TDO_driven      ),
     .exit                 ( jtag_exit            )
   );
+`else
+  assign jtag_exit = '0;
+`endif
 
   dmi_jtag i_dmi_jtag (
     .clk_i            ( clk_i           ),
@@ -189,6 +210,7 @@ module ariane_testharness #(
   assign dmi_req.op = dm::dtm_op_e'(debug_req_bits_op);
 
   if (InclSimDTM) begin
+`ifndef RISCV_VIP_MODE
     SimDTM i_SimDTM (
       .clk                  ( clk_i                 ),
       .reset                ( ~rst_ni               ),
@@ -203,6 +225,10 @@ module ariane_testharness #(
       .debug_resp_bits_data ( debug_resp.data       ),
       .exit                 ( dmi_exit              )
     );
+`else
+    assign dmi_req_valid = '0;
+    assign dmi_exit = '0;
+`endif
   end else begin
     assign dmi_req_valid = '0;
     assign debug_req_bits_op = '0;
@@ -364,11 +390,18 @@ module ariane_testharness #(
     .data_i ( rom_rdata               )
   );
 
+  logic [AXI_DATA_WIDTH-1:0]    bootrom_rdata;
+`ifdef RISCV_VIP_MODE
+  assign rom_rdata = enable_boot_i ? bootrom_rdata : 64'h0000006f0000006f; // j . instruction
+`else
+  assign rom_rdata = bootrom_rdata;
+`endif
+
   bootrom i_bootrom (
     .clk_i      ( clk_i     ),
     .req_i      ( rom_req   ),
     .addr_i     ( rom_addr  ),
-    .rdata_o    ( rom_rdata )
+    .rdata_o    ( bootrom_rdata )
   );
 
   // ------------------------------
@@ -677,6 +710,7 @@ module ariane_testharness #(
     end
   end
 
+`ifndef RISCV_VIP_MODE
     cva6_iti #(
         .CVA6Cfg   (CVA6Cfg),
         .CAUSE_LEN  (iti_pkg::CAUSE_LEN),
@@ -862,6 +896,9 @@ module ariane_testharness #(
     end
 `else
     assign rvfi_exit = tracer_exit;
+`endif
+`else
+    assign rvfi_exit = '0;
 `endif
 
 `ifdef VERILATOR
