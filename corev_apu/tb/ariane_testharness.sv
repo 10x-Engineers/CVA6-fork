@@ -31,7 +31,11 @@ module ariane_testharness #(
   parameter int unsigned AXI_ADDRESS_WIDTH = 64,
   parameter int unsigned AXI_DATA_WIDTH    = 64,
   parameter bit          InclSimDTM        = 1'b1,
+`ifdef RISCV_VIP_MODE
+  parameter int unsigned NUM_WORDS         = 2**18,         // 256K words = 2MB (sufficient for debug VIP)
+`else
   parameter int unsigned NUM_WORDS         = 2**25,         // memory size
+`endif
   parameter bit          StallRandomOutput = 1'b0,
   parameter bit          StallRandomInput  = 1'b0
 ) (
