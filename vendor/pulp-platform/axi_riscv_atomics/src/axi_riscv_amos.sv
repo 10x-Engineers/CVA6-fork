@@ -210,6 +210,15 @@ module axi_riscv_amos #(
     logic [AXI_STRB_WIDTH-1:0][7:0]                     strb_ext;
     logic                                               sign_a;
     logic                                               sign_b;
+    // Byte-reversed forms of the ALU inputs and result, used only when
+    // big_endian. They exist because a streaming concatenation is legal only
+    // in an assignment context (LRM 11.4.14) and not as an operand of a
+    // conditional expression: Xcelium rejects the inline `big_endian ? {<<8{x}}
+    // : x` form with *E,SCXALC, which Questa accepts. Doing the swap in its own
+    // assignment below is the same logic, spelled legally.
+    logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0]     op_a_rev;
+    logic [AXI_ALU_RATIO-1:0][RISCV_WORD_WIDTH-1:0]     op_b_rev;
+    logic [AXI_DATA_WIDTH-1:0]                          res_rev;
 
     /**
      * Calculate ready signals and channel states
@@ -914,12 +923,16 @@ module axi_riscv_amos #(
      * ALU
      */
 
+    assign op_a_rev       = {<<8{r_data_q & strb_ext}};
+    assign op_b_rev       = {<<8{w_data_q & strb_ext}};
+    assign res_rev        = {<<8{res}};
+
     assign big_endian     = (atop_q[3] == axi_pkg::ATOP_BIG_END);
-    assign op_a           = big_endian ? {<<8{r_data_q & strb_ext}} : (r_data_q & strb_ext);
-    assign op_b           = big_endian ? {<<8{w_data_q & strb_ext}} : (w_data_q & strb_ext);
+    assign op_a           = big_endian ? op_a_rev : (r_data_q & strb_ext);
+    assign op_b           = big_endian ? op_b_rev : (w_data_q & strb_ext);
     assign sign_a         = |(op_a & ~(strb_ext >> 1));
     assign sign_b         = |(op_b & ~(strb_ext >> 1));
-    assign alu_result_ext = big_endian ? {<<8{res}} : res;
+    assign alu_result_ext = big_endian ? res_rev : res;
 
     generate
         if (AXI_ALU_RATIO == 1 && RISCV_WORD_WIDTH == 32) begin

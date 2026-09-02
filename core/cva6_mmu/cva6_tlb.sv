@@ -482,11 +482,19 @@ module cva6_tlb
   end
 
   // sequential process
+  //
+  // The reset arm uses '0 rather than '{default: 0}. tags_q and content_q are
+  // *packed* arrays of anonymous packed structs, for which the two are
+  // equivalent (all bits zero), but the assignment-pattern form crashes
+  // Xcelium's code generator: xmvlog_cg dies with an internal exception
+  // (SIGSEGV) on this module, on both 20.09 and 23.03, at every optimisation
+  // level. Bisected to these three lines; '0 elaborates cleanly and is the
+  // more idiomatic spelling for a packed type anyway.
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (~rst_ni) begin
-      tags_q      <= '{default: 0};
-      content_q   <= '{default: 0};
-      plru_tree_q <= '{default: 0};
+      tags_q      <= '0;
+      content_q   <= '0;
+      plru_tree_q <= '0;
     end else begin
       tags_q      <= tags_n;
       content_q   <= content_n;
