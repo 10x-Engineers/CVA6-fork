@@ -2668,7 +2668,9 @@ module csr_regfile
       wfi_d = 1'b0;
       // or alternatively if there is no exception pending and we are not in debug mode wait here
       // for the interrupt
-    end else if (((CVA6Cfg.DebugEn && !debug_mode_q) && csr_op_i == WFI && !ex_i.valid) || (!CVA6Cfg.DebugEn && csr_op_i == WFI && !ex_i.valid)) begin
+      // Don't stall on wfi while single-stepping: dcsr.stepie=0 masks the
+      // interrupts that would wake us. Sdext says treat the wfi as a nop.
+    end else if (((CVA6Cfg.DebugEn && !debug_mode_q && !dcsr_q.step) && csr_op_i == WFI && !ex_i.valid) || (!CVA6Cfg.DebugEn && csr_op_i == WFI && !ex_i.valid)) begin
       wfi_d = 1'b1;
     end
   end
