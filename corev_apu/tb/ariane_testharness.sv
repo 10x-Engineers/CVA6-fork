@@ -278,6 +278,8 @@ module ariane_testharness #(
   logic [64/8-1:0]     dm_master_be;
   logic                dm_master_gnt;
   logic                dm_master_r_valid;
+  logic                dm_master_r_err;
+  logic                dm_master_r_other_err;
   logic [64-1:0]       dm_master_r_rdata;
 
   // debug module
@@ -307,6 +309,8 @@ module ariane_testharness #(
     .master_be_o          ( dm_master_be                ),
     .master_gnt_i         ( dm_master_gnt               ),
     .master_r_valid_i     ( dm_master_r_valid           ),
+    .master_r_err_i       ( dm_master_r_err             ),
+    .master_r_other_err_i ( dm_master_r_other_err       ),
     .master_r_rdata_i     ( dm_master_r_rdata           ),
     .dmi_rst_ni           ( rst_ni                      ),
     .dmi_req_valid_i      ( debug_req_valid             ),
@@ -336,6 +340,22 @@ module ariane_testharness #(
     .user_i     ( '0                        ),
     .data_i     ( dm_slave_rdata            )
   );
+
+  // axi_adapter does not pass the AXI response code on, so take it from the
+  // bus for the DM's sbcs.sberror. A single read completes (valid_o) the cycle
+  // after its R beat, a write in the cycle of its B beat.
+  axi_pkg::resp_t dm_r_resp_q, dm_master_resp;
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      dm_r_resp_q <= axi_pkg::RESP_OKAY;
+    end else if (dm_axi_m_resp.r_valid && dm_axi_m_req.r_ready) begin
+      dm_r_resp_q <= dm_axi_m_resp.r.resp;
+    end
+  end
+  assign dm_master_resp        = (dm_axi_m_resp.b_valid && dm_axi_m_req.b_ready) ?
+                                 dm_axi_m_resp.b.resp : dm_r_resp_q;
+  assign dm_master_r_err       = dm_master_r_valid && dm_master_resp == axi_pkg::RESP_DECERR;
+  assign dm_master_r_other_err = dm_master_r_valid && dm_master_resp == axi_pkg::RESP_SLVERR;
 
   `AXI_ASSIGN_FROM_REQ(slave[1], dm_axi_m_req)
   `AXI_ASSIGN_TO_RESP(dm_axi_m_resp, slave[1])
