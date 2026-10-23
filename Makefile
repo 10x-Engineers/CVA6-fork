@@ -305,6 +305,9 @@ xil_debug_filter = $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_obi_top.s
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_pkg.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag_tap.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag.sv)						
+# riscv-dbg's DMI test utilities are a simulation-only SystemVerilog package
+# (classes); they are not part of the SoC.
+xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_test.sv)
 src := $(filter-out $(xil_debug_filter), $(src))
 
 # riscv-dbg provides two pin-compatible JTAG TAPs that define the same module:
