@@ -141,6 +141,29 @@ module ariane_xilinx (
   input  wire [7:0]    pci_exp_rxp     ,
   input  wire [7:0]    pci_exp_rxn     ,
   input  logic         trst_n          ,
+`elsif ARTY_A7_100T
+  input  logic         sys_clk_i   ,
+  input  logic         cpu_resetn  ,
+
+  inout  wire [15:0]   ddr3_dq     ,
+  inout  wire [ 1:0]   ddr3_dqs_n  ,
+  inout  wire [ 1:0]   ddr3_dqs_p  ,
+  output wire [13:0]   ddr3_addr   ,
+  output wire [ 2:0]   ddr3_ba     ,
+  output wire          ddr3_ras_n  ,
+  output wire          ddr3_cas_n  ,
+  output wire          ddr3_we_n   ,
+  output wire [ 0:0]   ddr3_cs_n   ,
+  output wire          ddr3_reset_n,
+  output wire [ 0:0]   ddr3_ck_p   ,
+  output wire [ 0:0]   ddr3_ck_n   ,
+  output wire [ 0:0]   ddr3_cke    ,
+  output wire [ 1:0]   ddr3_dm     ,
+  output wire [ 0:0]   ddr3_odt    ,
+
+  // Arty A7-100T: no Ethernet PHY and no fan header -> ports omitted.
+  output logic [ 3:0]  led         ,
+  input  logic [ 3:0]  sw          ,
 `elsif NEXYS_VIDEO
   input  logic         sys_clk_i   ,
   input  logic         cpu_resetn  ,
@@ -293,6 +316,25 @@ logic cpu_reset;
 assign cpu_reset  = ~cpu_resetn;
 `elsif KC705
 assign cpu_resetn = ~cpu_reset;
+`elsif ARTY_A7_100T
+// The Arty has no external JTAG user pins: the debug TAP is the internal
+// BSCANE2 tap (dmi_bscane_tap.sv is selected in place of dmi_jtag_tap.sv).
+// The common tck/tms/tdi/tdo ports remain but are unused by that tap; trst_n
+// is not a port on this board, so tie it high for the (unused) pad interface.
+logic trst_n;
+assign trst_n = 1'b1;
+
+// Arty A7-100T has no PHY: ariane_peripherals keeps the eth ports, so
+// leave dummies that synthesis can prune.
+wire               eth_rst_n;
+wire               eth_rxck;
+wire               eth_rxctl;
+wire [3:0]         eth_rxd;
+wire               eth_txck;
+wire               eth_txctl;
+wire [3:0]         eth_txd;
+wire               eth_mdio;
+logic              eth_mdc;
 `elsif VC707
 assign cpu_resetn = ~cpu_reset;
 assign trst_n = ~trst;
@@ -302,6 +344,9 @@ assign cpu_reset  = ~cpu_resetn;
 `endif
 
 logic pll_locked;
+`ifdef ARTY_A7_100T
+logic sys_clk_bufg;
+`endif
 
 // ROM
 logic                    rom_req;
@@ -321,6 +366,75 @@ logic dmactive;
 // IRQ
 logic [1:0] irq;
 assign test_en    = 1'b0;
+
+`ifdef ARTY_A7_100T
+// Arty bring-up status chain (BSCANE2 USER1, IR 0x02) so the SoC state can
+// be read remotely over JTAG (the board is headless in CI). Read it with:
+//     irscan riscv.cpu 0x02
+//     drscan riscv.cpu 32 0 -endstate RUN/IDLE
+// The status word is:
+// [3:0]   heartbeat bits of a core-clock counter -> proves the core clock runs
+// [4]     ddr_init_calib_complete
+// [5]     pll_locked
+// [6]     ddr_sync_reset (MIG ui_clk reset, 1 = held in reset)
+// [7]     ndmreset (1 = debug ndmreset asserted)
+// [15:8]  status_counter[7:0] (changes while the core clock runs)
+// [19:16] 4'h5 alignment magic
+// [20]    ddr_init_calib_complete (duplicate of [4])
+// [21]    sticky: CVA6 core committed at least one instruction
+// [22]    sticky: a DMI request reached the DP (debug_req_valid)
+// [23]    dmactive
+// [31:24] 8'hA5 alignment magic
+// If the magic fields do not read back, the DR bit alignment is wrong.
+logic                 ddr_init_calib_complete;
+logic [23:0]          heartbeat_cnt;
+logic [15:0]          status_counter;
+logic [31:0]          arty_status;
+logic                 debug_req_seen;   // sticky: any DMI request reached the DM
+logic                 core_commit_seen; // sticky: the CVA6 core committed an instruction
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    heartbeat_cnt <= '0;
+  end else begin
+    heartbeat_cnt <= heartbeat_cnt + 1'b1;
+  end
+end
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    status_counter <= '0;
+  end else begin
+    status_counter <= status_counter + 1'b1;
+  end
+end
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    debug_req_seen <= 1'b0;
+  end else if (debug_req_valid) begin
+    debug_req_seen <= 1'b1;
+  end
+end
+always_ff @(posedge clk or negedge rst_n) begin
+  if (!rst_n) begin
+    core_commit_seen <= 1'b0;
+  end else if (rvfi_probes.instr.commit_instr_valid != '0) begin
+    core_commit_seen <= 1'b1;
+  end
+end
+assign arty_status = {
+  8'hA5,                              // [31:24] alignment magic
+  dmactive,                           // [23]
+  debug_req_seen,                     // [22] sticky: DMI request reached the DM
+  core_commit_seen,                   // [21] sticky: CVA6 committed an instruction
+  ddr_init_calib_complete,            // [20] duplicate of [4]
+  4'h5,                               // [19:16] alignment magic
+  status_counter[7:0],                // [15:8]
+  ndmreset, ddr_sync_reset, pll_locked, ddr_init_calib_complete, // [7:4]
+  heartbeat_cnt[23:20]                // [3:0]
+};
+status_bscane i_status_probe (
+  .status_i ( arty_status )
+);
+`endif
 
 logic [NBSlave-1:0] pc_asserted;
 
@@ -388,6 +502,10 @@ axi_xbar_intf #(
 // Debug Module
 // ---------------
 logic dmi_rst_n; // DTM reset: synchronous clear for the DM response queue
+
+// The JTAG TAP is selected at build time: boards without external JTAG user
+// pins (e.g. Arty A7-100T) compile dmi_bscane_tap.sv instead of
+// dmi_jtag_tap.sv; both are pin-compatible and instantiated as-is here.
 dmi_jtag i_dmi_jtag (
     .clk_i                ( clk                  ),
     .rst_ni               ( rst_n                ),
@@ -1075,6 +1193,11 @@ assign FifoEn = !usrFull && !usrEmpty;
   logic [3:0] unused_switches = 4'b0000;
 `endif
 
+`ifdef ARTY_A7_100T
+  logic [7:0] unused_led;
+  logic [3:0] unused_switches = 4'b0000;
+`endif
+
 logic clk_200MHz_ref;
 
 ariane_peripherals #(
@@ -1099,6 +1222,9 @@ ariane_peripherals #(
     `elsif NEXYS_VIDEO
     .InclSPI      ( 1'b1         ),
     .InclEthernet ( 1'b0         )
+    `elsif ARTY_A7_100T
+    .InclSPI      ( 1'b1         ),
+    .InclEthernet ( 1'b0         ) // Arty A7-100T has no Ethernet PHY
     `endif
 ) i_ariane_peripherals (
     .clk_i        ( clk                          ),
@@ -1130,6 +1256,9 @@ ariane_peripherals #(
     .spi_miso       ( spi_miso                    ),
     .spi_ss         ( spi_ss                      ),
     `ifdef KC705
+      .leds_o         ( {led[3:0], unused_led[7:4]}),
+      .dip_switches_i ( {sw, unused_switches}     )
+    `elsif ARTY_A7_100T
       .leds_o         ( {led[3:0], unused_led[7:4]}),
       .dip_switches_i ( {sw, unused_switches}     )
     `else
@@ -1362,6 +1491,30 @@ xlnx_clk_gen i_xlnx_clk_gen (
   .clk_in1  ( ddr_clock_out   )  // 100MHz input clock
 );
 
+`elsif ARTY_A7_100T
+// Arty clocking follows the known-good MicroBlaze-DDR3 recipe:
+//  - the 100 MHz board clock goes through a BUFG before reaching the MIG
+//    (with MIG "SystemClock: No Buffer" this removes the generated LVCMOS25
+//    constraint on E3, which otherwise conflicts with the other LVCMOS33 pins
+//    in bank 35),
+//  - a Clocking Wizard fed from that same 100 MHz clock generates the 25 MHz
+//    core clock and the 200 MHz MIG clk_ref_i required by IDELAYCTRL.
+BUFG bufg_sys_clk (
+  .I ( sys_clk_i     ),
+  .O ( sys_clk_bufg  )
+);
+
+xlnx_clk_gen i_xlnx_clk_gen (
+  .clk_out1 ( clk             ), // 25 MHz core clock
+  .clk_out2 ( phy_tx_clk      ), // 125 MHz (unused: no PHY on Arty)
+  .clk_out3 ( eth_clk         ), // 125 MHz quadrature (unused: no PHY on Arty)
+  .clk_out4 ( sd_clk_sys      ), // 50 MHz clock (SPI/SD path)
+  .clk_out5 ( clk_200MHz_ref  ), // 200 MHz (MIG clk_ref_i)
+  .reset    ( 1'b0            ),
+  .locked   ( pll_locked      ),
+  .clk_in1  ( sys_clk_bufg    )  // 100 MHz board clock
+);
+
 `else
 
 xlnx_clk_gen i_xlnx_clk_gen (
@@ -1530,6 +1683,79 @@ xlnx_mig_7_ddr3 i_ddr (
     .init_calib_complete (            ), // keep open
     .device_temp         (            ), // keep open
     .sys_rst             ( cpu_resetn )
+);
+`elsif ARTY_A7_100T
+
+xlnx_mig_7_ddr3 i_ddr (
+    .sys_clk_i       ( sys_clk_bufg   ),
+    .clk_ref_i       ( clk_200MHz_ref ),
+    .ddr3_dq,
+    .ddr3_dqs_n,
+    .ddr3_dqs_p,
+    .ddr3_addr,
+    .ddr3_ba,
+    .ddr3_ras_n,
+    .ddr3_cas_n,
+    .ddr3_we_n,
+    .ddr3_cs_n,
+    .ddr3_reset_n,
+    .ddr3_ck_p,
+    .ddr3_ck_n,
+    .ddr3_cke,
+    .ddr3_dm,
+    .ddr3_odt,
+    .mmcm_locked     (                ), // keep open
+    .app_sr_req      ( '0             ),
+    .app_ref_req     ( '0             ),
+    .app_zq_req      ( '0             ),
+    .app_sr_active   (                ), // keep open
+    .app_ref_ack     (                ), // keep open
+    .app_zq_ack      (                ), // keep open
+    .ui_clk          ( ddr_clock_out  ),
+    .ui_clk_sync_rst ( ddr_sync_reset ),
+    .aresetn         ( ndmreset_n     ),
+    .s_axi_awid,
+    .s_axi_awaddr    ( s_axi_awaddr[28:0] ),
+    .s_axi_awlen,
+    .s_axi_awsize,
+    .s_axi_awburst,
+    .s_axi_awlock,
+    .s_axi_awcache,
+    .s_axi_awprot,
+    .s_axi_awqos,
+    .s_axi_awvalid,
+    .s_axi_awready,
+    .s_axi_wdata,
+    .s_axi_wstrb,
+    .s_axi_wlast,
+    .s_axi_wvalid,
+    .s_axi_wready,
+    .s_axi_bready,
+    .s_axi_bid,
+    .s_axi_bresp,
+    .s_axi_bvalid,
+    .s_axi_arid,
+    .s_axi_araddr     ( s_axi_araddr[28:0] ),
+    .s_axi_arlen,
+    .s_axi_arsize,
+    .s_axi_arburst,
+    .s_axi_arlock,
+    .s_axi_arcache,
+    .s_axi_arprot,
+    .s_axi_arqos,
+    .s_axi_arvalid,
+    .s_axi_arready,
+    .s_axi_rready,
+    .s_axi_rid,
+    .s_axi_rdata,
+    .s_axi_rresp,
+    .s_axi_rlast,
+    .s_axi_rvalid,
+    .init_calib_complete ( ddr_init_calib_complete ), // bring-up status bit
+    .device_temp         (            ), // keep open
+    // MIG sys_rst (active LOW): hold the controller in reset until the
+    // reference-clock MMCM is locked. BTN0 (D9) is active HIGH, so invert it.
+    .sys_rst             ( pll_locked & ~cpu_resetn )
 );
 `elsif NEXYS_VIDEO
 
@@ -2125,3 +2351,39 @@ axi_clock_converter_0 pcie_axi_clock_converter (
 `endif
 
 endmodule
+
+`ifdef ARTY_A7_100T
+// Read-only BSCANE2 status chain (bring-up probe). USER1 (IR 0x02): a DR
+// scan latches `status_i` on capture and shifts it out LSB first.
+module status_bscane (
+  input logic [31:0] status_i
+);
+  logic tck, sel, shift, capture, update;
+  logic tdi;
+  logic [31:0] status_q;
+
+  always_ff @(posedge tck) begin
+    if (capture) begin
+      status_q <= status_i;
+    end else if (shift) begin
+      status_q <= {tdi, status_q[31:1]};
+    end
+  end
+
+  BSCANE2 #(
+    .JTAG_CHAIN ( 1 )
+  ) i_bscane_status (
+    .CAPTURE ( capture ),
+    .DRCK    ( ),
+    .RESET   ( ),
+    .RUNTEST ( ),
+    .SEL     ( sel ),
+    .SHIFT   ( shift ),
+    .TCK     ( tck ),
+    .TDI     ( tdi ),
+    .TMS     ( ),
+    .TDO     ( status_q[0] ),
+    .UPDATE  ( update )
+  );
+endmodule
+`endif
