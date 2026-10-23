@@ -114,14 +114,18 @@ set_property "steps.route_design.args.directive" "RuntimeOptimized" [get_runs im
 launch_runs impl_1
 wait_on_run impl_1
 
-# Arty-only: quiet the intentionally-floating-port DRCs for bitstream
 if { $::env(BOARD) eq "arty_a7_100t" } {
-  set_property STEPS.WRITE_BITSTREAM.TCL.PRE [list [file normalize [file join [file dirname [info script]] write_bitstream_pre_hook.tcl]]] [get_runs impl_1]
+  # Demote the intentional floating-port DRCs and use QSPI x4.
+  open_run impl_1
+  set_property SEVERITY {Warning} [get_drc_checks UCIO-1]
+  set_property SEVERITY {Warning} [get_drc_checks NSTD-1]
+  set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+  write_bitstream -force ariane.runs/impl_1/ariane_xilinx.bit
+} else {
+  launch_runs impl_1 -to_step write_bitstream
+  wait_on_run impl_1
+  open_run impl_1
 }
-
-launch_runs impl_1 -to_step write_bitstream
-wait_on_run impl_1
-open_run impl_1
 
 # output Verilog netlist + SDC for timing simulation
 write_verilog -force -mode funcsim work-fpga/${project}_funcsim.v

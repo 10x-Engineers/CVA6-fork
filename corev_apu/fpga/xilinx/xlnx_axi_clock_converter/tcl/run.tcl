@@ -4,7 +4,7 @@ set boardName  $::env(XILINX_BOARD)
 set ipName xlnx_axi_clock_converter
 
 create_project $ipName . -force -part $partNumber
-catch {set_property board_part $boardName [current_project]} ocd_bp_msg; if {[info exists ocd_bp_msg]} {puts "INFO: board_part optional: $ocd_bp_msg"}
+set_property board_part $boardName [current_project]
 
 create_ip -name axi_clock_converter -vendor xilinx.com -library ip -module_name $ipName
 

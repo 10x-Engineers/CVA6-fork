@@ -17,10 +17,7 @@
 set project ariane
 
 create_project $project . -force -part $::env(XILINX_PART)
-# The board part definition is optional: builds only need the part number.
-# If the Digilent board files are not installed, keep going without it.
-catch {set_property board_part $::env(XILINX_BOARD) [current_project]} ocd_bp_msg
-if {[info exists ocd_bp_msg]} {puts "INFO: board_part optional: $ocd_bp_msg"}
+set_property board_part $::env(XILINX_BOARD) [current_project]
 
 # set number of threads to 8 (maximum, unfortunately)
 set_param general.maxThreads 8

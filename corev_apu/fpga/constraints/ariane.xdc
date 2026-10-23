@@ -1,8 +1,6 @@
 ## Common Ariane XDCs
 
-# Boards whose debug TAP is internal (BSCANE2, e.g. Arty A7-100T) do not use
-# the external JTAG pads; skip their constraints (trst_n is not a port on
-# those boards either).
+# Arty uses the internal BSCANE2 TAP: no external JTAG pins.
 if { !([info exists ::env(BOARD)] && $::env(BOARD) eq "arty_a7_100t") } {
 create_clock -period 100.000 -name tck -waveform {0.000 50.000} [get_ports tck]
 set_input_jitter tck 1.000

@@ -4,7 +4,7 @@ set boardName  $::env(XILINX_BOARD)
 set ipName xlnx_ila
 
 create_project $ipName . -force -part $partNumber
-catch {set_property board_part $boardName [current_project]} ocd_bp_msg; if {[info exists ocd_bp_msg]} {puts "INFO: board_part optional: $ocd_bp_msg"}
+set_property board_part $boardName [current_project]
 
 create_ip -name ila -vendor xilinx.com -library ip -module_name $ipName
 set_property -dict [list  CONFIG.C_NUM_OF_PROBES {8} \
