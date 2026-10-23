@@ -307,6 +307,16 @@ xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag_t
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag.sv)						
 src := $(filter-out $(xil_debug_filter), $(src))
 
+# riscv-dbg provides two pin-compatible JTAG TAPs that define the same module:
+# dmi_jtag_tap.sv (dedicated JTAG pads) and dmi_bscane_tap.sv (Xilinx BSCANE2,
+# for boards whose FTDI only drives the configuration chain, e.g. the Arty
+# A7-100T). Compile exactly one of them.
+ifeq ($(BOARD),arty_a7_100t)
+src := $(filter-out $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_jtag_tap.sv), $(src))
+else
+src := $(filter-out $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_bscane_tap.sv), $(src))
+endif
+
 fpga_src += corev_apu/fpga/src/bootrom/bootrom_$(XLEN).sv
 fpga_src := $(addprefix $(root-dir), $(fpga_src))
 
