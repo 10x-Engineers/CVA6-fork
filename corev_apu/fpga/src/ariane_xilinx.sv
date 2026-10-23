@@ -856,6 +856,18 @@ ariane #(
 `AXI_ASSIGN_FROM_REQ(slave[0], axi_ariane_req)
 `AXI_ASSIGN_TO_RESP(axi_ariane_resp, slave[0])
 
+`ifdef ARTY_A7_100T
+localparam bit TraceEn = (CVA6Cfg.XLEN != 64);
+`else
+localparam bit TraceEn = 1'b1;
+`endif
+
+localparam DATA_LEN = 8;
+logic                           valid_slice;
+logic [DATA_LEN-1:0]            slice;
+logic                           usrFull;
+
+if (TraceEn) begin : gen_trace
   cva6_rvfi #(
       .CVA6Cfg   (CVA6Cfg),
       .rvfi_instr_t(rvfi_instr_t),
@@ -968,9 +980,6 @@ ariane #(
         .pop_i     (encap_fifo_pop)
     );
 
-    localparam DATA_LEN = 8;
-    logic                           valid_slice;
-    logic [DATA_LEN-1:0]            slice;
     logic [$clog2(DATA_LEN)-4:0]    valid_bytes;
 
     slicer_DPTI #(
@@ -986,6 +995,7 @@ ariane #(
         .slice_o           (slice),
         .done_o            (encap_fifo_pop)
     );
+end
 // ---------------
 // CLINT
 // ---------------
@@ -1063,7 +1073,6 @@ end
 // ---------------
 
 logic FifoEn ;
-logic usrFull ;
 logic usrEmpty ;
 logic [7:0] w_data;
 logic [7:0] r_data;
@@ -1079,6 +1088,7 @@ logic prog_wrn_debug;
 logic prog_oen_debug;
 logic prog_siwun_debug;
 
+if (TraceEn) begin : gen_dpti
 assign prog_rxen_debug = prog_rxen;
 assign prog_txen_debug = prog_txen;
 assign prog_spien_debug = prog_spien;
@@ -1119,6 +1129,14 @@ assign FifoEn = !usrFull && !usrEmpty;
           .prog_siwun(prog_siwun),
           .prog_d(prog_d)
 );
+end else begin : gen_no_trace
+// Arty A7-100T: no trace connector, keep the DPTI pins idle.
+assign prog_rdn   = 1'b0;
+assign prog_wrn   = 1'b0;
+assign prog_oen   = 1'b0;
+assign prog_siwun = 1'b0;
+assign prog_d     = 'z;
+end
 // ---------------
 // Peripherals
 // ---------------
