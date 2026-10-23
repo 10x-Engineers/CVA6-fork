@@ -224,6 +224,10 @@ module riscv_peripherals #(
     .clk_i                                        ,
     .rst_ni                                       , // PoR
     .testmode_i                                   ,
+    .next_dm_addr_i       ( '0                    ), // no next debug module
+    .ndmreset_ack_i       ( ndmreset_o            ),
+    .master_r_err_i       ( '0                    ),
+    .master_r_other_err_i ( '0                    ),
     .ndmreset_o                                   ,
     .dmactive_o                                   , // active debug session
     .debug_req_o                                  ,
