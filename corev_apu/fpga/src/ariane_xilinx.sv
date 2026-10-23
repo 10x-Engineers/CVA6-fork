@@ -387,10 +387,11 @@ axi_xbar_intf #(
 // ---------------
 // Debug Module
 // ---------------
+logic dmi_rst_n; // DTM reset: synchronous clear for the DM response queue
 dmi_jtag i_dmi_jtag (
     .clk_i                ( clk                  ),
     .rst_ni               ( rst_n                ),
-    .dmi_rst_no           (                      ), // keep open
+    .dmi_rst_no           ( dmi_rst_n            ),
     .testmode_i           ( test_en              ),
     .dmi_req_valid_o      ( debug_req_valid      ),
     .dmi_req_ready_i      ( debug_req_ready      ),
@@ -458,7 +459,7 @@ dm_top #(
     .master_gnt_i     ( dm_master_gnt     ),
     .master_r_valid_i ( dm_master_r_valid ),
     .master_r_rdata_i ( dm_master_r_rdata ),
-    .dmi_rst_ni       ( rst_n             ),
+    .dmi_rst_ni       ( dmi_rst_n         ),
     .dmi_req_valid_i  ( debug_req_valid   ),
     .dmi_req_ready_o  ( debug_req_ready   ),
     .dmi_req_i        ( debug_req         ),
