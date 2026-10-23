@@ -71,12 +71,32 @@ added in commit `b5d1610`). The top-level Makefile compiles it in place of
 ## Bring-up status chain (optional)
 
 For headless bring-up, a read-only BSCANE2 USER1 (`IR 0x02`) chain exposes a
-status word. Read it with OpenOCD:
+status word. Read it with a **tap-only** OpenOCD configuration (no `riscv`
+target): once a RISC-V target is created and examined, OpenOCD routes
+`irscan`/`drscan` through the DTM and the raw status chain is no longer
+reachable.
 
 ```
-irscan riscv.cpu 0x02
-drscan riscv.cpu 32 0 -endstate RUN/IDLE
+adapter driver ftdi
+transport select jtag
+ftdi device_desc "Digilent USB Device"
+ftdi vid_pid 0x0403 0x6010
+ftdi channel 0
+ftdi layout_init 0x0088 0x008b
+adapter speed 1000
+jtag newtap riscv cpu -irlen 6 -expected-id 0x13631093 -ignore-version
+init
 ```
+
+```
+openocd -f arty_status.cfg \
+  -c "irscan riscv.cpu 0x02" \
+  -c "drscan riscv.cpu 32 0 -endstate RUN/IDLE" \
+  -c "shutdown"
+```
+
+A healthy board reads e.g. `0xa5f50d3f` (the counter fields change between
+reads).
 
 | Bits | Meaning |
 |---|---|
