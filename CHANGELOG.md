@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- FPGA support for the Digilent Arty A7-100T (`xc7a100tcsg324-1`): DDR3 via
+  the Xilinx MIG, UART/SPI/GPIO peripherals and the internal BSCANE2 debug
+  TAP for OpenOCD.
+
 ### Changed
 
 - Bump `riscv-dbg` from `e19d69e` to `643607e` (current upstream master); this
