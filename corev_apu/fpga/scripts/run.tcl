@@ -24,6 +24,8 @@ if {$::env(BOARD) eq "genesys2"} {
       add_files -fileset constrs_1 -norecurse constraints/vc707.xdc
 } elseif {$::env(BOARD) eq "nexys_video"} {
       add_files -fileset constrs_1 -norecurse constraints/nexys_video.xdc
+} elseif {$::env(BOARD) eq "arty_a7_100t"} {
+      add_files -fileset constrs_1 -norecurse constraints/arty-a7-100t.xdc
 } else {
       exit 1
 }
@@ -72,6 +74,10 @@ if {$::env(BOARD) eq "genesys2"} {
       read_verilog -sv {src/nexys_video.svh ../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh}
       set file "src/nexys_video.svh"
       set registers "../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh"
+} elseif {$::env(BOARD) eq "arty_a7_100t"} {
+      read_verilog -sv {src/arty_a7_100t.svh ../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh}
+      set file "src/arty_a7_100t.svh"
+      set registers "../../vendor/pulp-platform/common_cells/include/common_cells/registers.svh"
 } else {
     exit 1
 }
@@ -107,6 +113,12 @@ set_property "steps.route_design.args.directive" "RuntimeOptimized" [get_runs im
 
 launch_runs impl_1
 wait_on_run impl_1
+
+# Arty-only: quiet the intentionally-floating-port DRCs for bitstream
+if { $::env(BOARD) eq "arty_a7_100t" } {
+  set_property STEPS.WRITE_BITSTREAM.TCL.PRE [list [file normalize [file join [file dirname [info script]] write_bitstream_pre_hook.tcl]]] [get_runs impl_1]
+}
+
 launch_runs impl_1 -to_step write_bitstream
 wait_on_run impl_1
 open_run impl_1
