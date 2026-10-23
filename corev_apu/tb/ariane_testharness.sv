@@ -259,6 +259,10 @@ module ariane_testharness #(
     .clk_i                ( clk_i                       ),
     .rst_ni               ( rst_ni                      ), // PoR
     .testmode_i           ( test_en                     ),
+    .next_dm_addr_i       ( '0                          ), // no next debug module
+    .ndmreset_ack_i       ( ndmreset                    ),
+    .master_r_err_i       ( '0                          ),
+    .master_r_other_err_i ( '0                          ),
     .ndmreset_o           ( ndmreset                    ),
     .dmactive_o           (                             ), // active debug session
     .debug_req_o          ( debug_req_core_ungtd        ),
