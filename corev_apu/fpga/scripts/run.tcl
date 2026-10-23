@@ -128,9 +128,9 @@ if { $::env(BOARD) eq "arty_a7_100t" } {
 }
 
 # output Verilog netlist + SDC for timing simulation
-write_verilog -force -mode funcsim work-fpga/${project}_funcsim.v
-write_verilog -force -mode timesim work-fpga/${project}_timesim.v
-write_sdf     -force work-fpga/${project}_timesim.sdf
+write_verilog -force -mode funcsim $::env(WORK_DIR)/${project}_funcsim.v
+write_verilog -force -mode timesim $::env(WORK_DIR)/${project}_timesim.v
+write_sdf     -force $::env(WORK_DIR)/${project}_timesim.sdf
 
 # reports
 exec mkdir -p reports/
