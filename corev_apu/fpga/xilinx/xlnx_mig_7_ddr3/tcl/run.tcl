@@ -5,7 +5,7 @@ set boardNameShort $::env(BOARD)
 set ipName xlnx_mig_7_ddr3
 
 create_project $ipName . -force -part $partNumber
-set_property board_part $boardName [current_project]
+catch {set_property board_part $boardName [current_project]} ocd_bp_msg; if {[info exists ocd_bp_msg]} {puts "INFO: board_part optional: $ocd_bp_msg"}
 
 create_ip -name mig_7series -vendor xilinx.com -library ip -module_name $ipName
 

@@ -4,7 +4,7 @@ set boardName  $::env(XILINX_BOARD)
 set ipName xlnx_axi_gpio
 
 create_project $ipName . -force -part $partNumber
-set_property board_part $boardName [current_project]
+catch {set_property board_part $boardName [current_project]} ocd_bp_msg; if {[info exists ocd_bp_msg]} {puts "INFO: board_part optional: $ocd_bp_msg"}
 
 create_ip -name axi_gpio -vendor xilinx.com -library ip -module_name $ipName
 set_property -dict [list CONFIG.C_GPIO_WIDTH {8} CONFIG.C_GPIO2_WIDTH {8} CONFIG.C_IS_DUAL {1} CONFIG.C_ALL_INPUTS_2 {1} CONFIG.C_INTERRUPT_PRESENT {0}] [get_ips $ipName]
