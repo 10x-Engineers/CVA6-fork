@@ -345,6 +345,10 @@ dm_top #(
     .clk_i            ( clk               ),
     .rst_ni           ( rst_n             ), // PoR
     .testmode_i       ( test_en           ),
+    .next_dm_addr_i   ( '0                ), // no next debug module
+    .ndmreset_ack_i   ( ndmreset          ),
+    .master_r_err_i   ( '0                ),
+    .master_r_other_err_i ( '0            ),
     .ndmreset_o       ( ndmreset          ),
     .dmactive_o       ( dmactive          ), // active debug session
     .debug_req_o      ( debug_req_irq     ),
