@@ -303,6 +303,16 @@ logic sd_clk_sys;
 
 logic ddr_sync_reset;
 logic ddr_clock_out;
+// Reset for the ui_clk side of the DDR AXI path. On the Arty the MIG ui_clk
+// (81.25 MHz) is asynchronous to the 25 MHz core clock, so the reset must be
+// the MIG's ui_clk-synchronized reset; an asynchronous deassert of
+// ndmreset_n can wedge the clock converter.
+logic ddr_m_axi_aresetn;
+`ifdef ARTY_A7_100T
+assign ddr_m_axi_aresetn = ~ddr_sync_reset;
+`else
+assign ddr_m_axi_aresetn = ndmreset_n;
+`endif
 
 logic rst_n, rst;
 logic rtc;
@@ -1437,7 +1447,7 @@ xlnx_axi_clock_converter i_xlnx_axi_clock_converter_ddr (
   .s_axi_rready   ( dram.r_ready     ),
   // to size converter
   .m_axi_aclk     ( ddr_clock_out    ),
-  .m_axi_aresetn  ( ndmreset_n       ),
+  .m_axi_aresetn  ( ddr_m_axi_aresetn ),
   .m_axi_awid     ( s_axi_awid       ),
   .m_axi_awaddr   ( s_axi_awaddr     ),
   .m_axi_awlen    ( s_axi_awlen      ),
@@ -1713,7 +1723,7 @@ xlnx_mig_7_ddr3 i_ddr (
     .app_zq_ack      (                ), // keep open
     .ui_clk          ( ddr_clock_out  ),
     .ui_clk_sync_rst ( ddr_sync_reset ),
-    .aresetn         ( ndmreset_n     ),
+    .aresetn         ( ndmreset_n     ), // MIG input reset; do not feed it its own sync reset
     .s_axi_awid,
     .s_axi_awaddr    ( s_axi_awaddr[28:0] ),
     .s_axi_awlen,
