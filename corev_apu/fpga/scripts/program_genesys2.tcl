@@ -7,7 +7,7 @@
 #
 # Original Author: Guillaume CHAUVON (guillaume.chauvon@thalesgroup.com)
 
-# Program Genesys2 FPGA board connected to $HW_SERVER_URL with bitstream $::env(WORK_DIR)/ariane_xilinx.bit
+# Program Genesys2 FPGA board connected to $HW_SERVER_URL with bitstream ../work-fpga/ariane_xilinx.bit
 
 open_hw_manager
 # Connect to an HW_SERVER connected to the FPGA.
@@ -15,6 +15,6 @@ open_hw_manager
 connect_hw_server -url $env(HW_SERVER_URL)
 open_hw_target
 current_hw_device [get_hw_devices xc7k325t_0]
-set_property PROGRAM.FILE "$::env(WORK_DIR)/ariane_xilinx.bit" [get_hw_device xc7k325t_0]
+set_property PROGRAM.FILE {../work-fpga/ariane_xilinx.bit} [get_hw_device xc7k325t_0]
 program_hw_devices [get_hw_devices xc7k325t_0]
 refresh_hw_device [lindex [get_hw_devices xc7k325t_0] 0]

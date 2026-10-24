@@ -54,5 +54,5 @@ IDCODE: `0x13631093`, IR length 6.
 ## Flash
 
 ```
-openFPGALoader -b arty_a7_100t corev_apu/fpga/work-fpga-<config>/ariane_xilinx.bit
+openFPGALoader -b arty_a7_100t corev_apu/fpga/work-fpga/ariane_xilinx.bit
 ```

@@ -1,9 +1,7 @@
 VIVADO ?= vivado
 VIVADOFLAGS ?= -nojournal -mode batch -source scripts/prologue.tcl
 
-TARGET_CFG ?= default
-work-dir := work-fpga-$(TARGET_CFG)
-export WORK_DIR := $(work-dir)
+work-dir := work-fpga
 bit := $(work-dir)/ariane_xilinx.bit
 mcs := $(work-dir)/ariane_xilinx.mcs
 ip-dir := xilinx
