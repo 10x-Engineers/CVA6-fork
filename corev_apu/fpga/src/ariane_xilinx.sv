@@ -1176,7 +1176,7 @@ ariane_peripherals #(
     .InclEthernet ( 1'b0         )
     `elsif ARTY_A7_100T
     .InclSPI      ( 1'b1         ),
-    .InclEthernet ( 1'b0         ) // Arty A7-100T has no Ethernet PHY
+    .InclEthernet ( 1'b0         )
     `endif
 ) i_ariane_peripherals (
     .clk_i        ( clk                          ),
