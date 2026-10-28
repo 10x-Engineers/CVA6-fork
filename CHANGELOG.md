@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 
+- Bump `riscv-dbg` from `e19d69e` to `643607e` (current upstream master); this
+  includes the Xilinx BSCANE2 debug TAP and the newer debug module (chained
+  debug modules, reset acknowledgement, SBA error reporting)
 - Fix non-setable MEIE bit in MIE CSR
 - Bump `fpnew` to `v0.6.2`
 - Restructured directories to separate CVA6 core from CVA6-APU (FPGA emulation platform for the core).  See the [README](README.md#new-directory-structure) for details.
