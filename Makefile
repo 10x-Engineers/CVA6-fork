@@ -86,6 +86,10 @@ else ifeq ($(BOARD), nexys_video)
 	XILINX_PART              := xc7a200tsbg484-1
 	XILINX_BOARD             := digilentinc.com:nexys_video:part0:1.1
 	CLK_PERIOD_NS            := 40
+else ifeq ($(BOARD), arty_a7_100t)
+	XILINX_PART              := xc7a100tcsg324-1
+	XILINX_BOARD             := digilentinc.com:arty-a7-100:part0:1.1
+	CLK_PERIOD_NS            := 40
 else
 $(error Unknown board - please specify a supported FPGA board)
 endif
@@ -102,7 +106,7 @@ endif
 # cv64a6_imafdc_sv39, cv32a6_imac_sv0, cv32a6_imac_sv32, cv32a6_imafc_sv32, cv32a6_ima_sv32_fpga
 # Changing the default target to cv32a60x for Step1 verification
 target     ?= cv64a6_imafdc_sv39
-ifeq ($(target), cv64a6_imafdc_sv39)
+ifneq (,$(findstring cv64,$(target)))
 	XLEN ?= 64
 else
 	XLEN ?= 32
@@ -192,6 +196,10 @@ src :=  $(if $(spike-tandem),verif/tb/core/uvma_core_cntrl_pkg.sv)              
         vendor/pulp-platform/axi/src/axi_demux.sv                                    \
         vendor/pulp-platform/axi/src/axi_xbar.sv                                     \
         vendor/pulp-platform/common_cells/src/cdc_2phase.sv                          \
+        vendor/pulp-platform/common_cells/src/cdc_2phase_clearable.sv                \
+        vendor/pulp-platform/common_cells/src/cdc_4phase.sv                           \
+        vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr_pkg.sv                  \
+        vendor/pulp-platform/common_cells/src/cdc_reset_ctrlr.sv                      \
         vendor/pulp-platform/common_cells/src/spill_register_flushable.sv            \
         vendor/pulp-platform/common_cells/src/spill_register.sv                      \
         vendor/pulp-platform/common_cells/src/deprecated/fifo_v1.sv                  \
@@ -301,7 +309,26 @@ xil_debug_filter = $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_obi_top.s
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dm_pkg.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag_tap.sv)
 xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_vjtag.sv)						
+# riscv-dbg's DMI test utilities are a simulation-only SystemVerilog package
+# (classes); they are not part of the SoC.
+xil_debug_filter += $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_test.sv)
 src := $(filter-out $(xil_debug_filter), $(src))
+
+# riscv-dbg provides two pin-compatible JTAG TAPs that define the same module:
+# dmi_jtag_tap.sv (dedicated JTAG pads) and dmi_bscane_tap.sv (Xilinx BSCANE2,
+# for boards whose FTDI only drives the configuration chain, e.g. the Arty
+# A7-100T). Compile exactly one of them.
+ifeq ($(BOARD),arty_a7_100t)
+src := $(filter-out $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_jtag_tap.sv), $(src))
+else
+src := $(filter-out $(addprefix $(root-dir), corev_apu/riscv-dbg/src/dmi_bscane_tap.sv), $(src))
+endif
+
+# The Arty's 10/100 MII PHY uses framing_top_mii (same register map as the
+# lowRISC framing_top) and verilog-ethernet's MII MAC.
+ifeq ($(BOARD),arty_a7_100t)
+fpga_src += $(wildcard corev_apu/fpga/src/arty-ethernet/*.sv)
+endif
 
 fpga_src += corev_apu/fpga/src/bootrom/bootrom_$(XLEN).sv
 fpga_src := $(addprefix $(root-dir), $(fpga_src))
